@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
+
   smoke-tests:
     name: Smoke Tests
     runs-on: ubuntu-latest
@@ -27,6 +28,10 @@ jobs:
           ref: main
           path: flock-app
 
+      - name: Validate Docker Compose
+        working-directory: FlockApp
+        run: docker compose config --quiet
+
       - name: Run smoke tests
         working-directory: FlockApp
         run: |
@@ -40,7 +45,14 @@ jobs:
               -Dwebdriver.remote.driver=chrome \
               verify
 
-      - name: Upload smoke reports
+      - name: Fix report permissions
+        if: always()
+        run: |
+          if [ -d FlockApp/target ]; then
+            sudo chmod -R a+rX FlockApp/target
+          fi
+
+      - name: Upload smoke test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -49,11 +61,13 @@ jobs:
             FlockApp/target/site/serenity/
             FlockApp/target/surefire-reports/
           if-no-files-found: warn
+          retention-days: 14
 
       - name: Clean up Docker
         if: always()
         working-directory: FlockApp
         run: docker compose down --remove-orphans
+
 
   regression-tests:
     name: Regression Tests
@@ -73,6 +87,10 @@ jobs:
           ref: main
           path: flock-app
 
+      - name: Validate Docker Compose
+        working-directory: FlockApp
+        run: docker compose config --quiet
+
       - name: Run regression tests
         working-directory: FlockApp
         run: |
@@ -86,7 +104,14 @@ jobs:
               -Dwebdriver.remote.driver=chrome \
               verify
 
-      - name: Upload regression reports
+      - name: Fix report permissions
+        if: always()
+        run: |
+          if [ -d FlockApp/target ]; then
+            sudo chmod -R a+rX FlockApp/target
+          fi
+
+      - name: Upload regression test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -95,6 +120,7 @@ jobs:
             FlockApp/target/site/serenity/
             FlockApp/target/surefire-reports/
           if-no-files-found: warn
+          retention-days: 14
 
       - name: Clean up Docker
         if: always()
