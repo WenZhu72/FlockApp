@@ -1,59 +1,65 @@
-name: FlockApp Web Tests
 
-#   dev  -> @smoke scenarios only
-#   main -> every scenario except those tagged @ignore
+name: FlockApp Docker UI Tests
+
 on:
-  pull_request:
-    branches: [main, dev]
   push:
-    branches: [main, dev]
-  workflow_dispatch:      # manual runs use the rule for the branch selected
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
 
 jobs:
-  ui-tests:
-    name: FlockApp Web Tests
+  docker-tests:
+    name: Dockerised Selenium Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     env:
-      # base_ref is the target branch of a pull request; ref_name is the branch
-      # pushed to (base_ref is empty for pushes and manual runs).
       TEST_TAGS: ${{ (github.base_ref || github.ref_name) == 'main' && 'not @ignore' || '@smoke' }}
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v5
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
+      - name: Checkout test automation
+        uses: actions/checkout@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+          path: FlockApp
 
-      # "mvn test" rather than "mvn verify": test failures are recorded in the
-      # report but do not fail the workflow (testFailureIgnore is true in
-      # pom.xml, and the serenity:check goal that fails the build is not run).
-      - name: Run tests (${{ env.TEST_TAGS }})
-        run: mvn -B clean test -Dcucumber.filter.tags="$TEST_TAGS"
+      - name: Checkout FlockApp website
+        uses: actions/checkout@v4
+        with:
+          repository: WenZhu72/flock-app-docker
+          ref: main
+          path: flock-app
 
-      - name: Build Serenity report
-        if: always()
-        run: mvn -B serenity:aggregate
+      - name: Validate Docker Compose
+        working-directory: FlockApp
+        run: docker compose config --quiet
 
-      - name: Add results to the run summary
-        if: always()
+      - name: Run Dockerised Selenium tests
+        working-directory: FlockApp
         run: |
-          echo "## FlockApp test results" >> "$GITHUB_STEP_SUMMARY"
-          echo "Tags run: \`$TEST_TAGS\`" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat target/site/serenity/summary.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null \
-            || echo "No summary found" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "Download the full report from the serenity-report artifact below." >> "$GITHUB_STEP_SUMMARY"
+          docker compose run --build --rm \
+            -e TEST_TAGS="$TEST_TAGS" \
+            tests mvn -B \
+              -Dmaven.test.failure.ignore=true \
+              -Dcucumber.filter.tags="$TEST_TAGS" \
+              -Dwebdriver.base.url=http://flockapp \
+              -Dwebdriver.driver=remote \
+              -Dwebdriver.remote.url=http://selenium:4444/wd/hub \
+              -Dwebdriver.remote.driver=chrome \
+              verify
 
-      - name: Upload Serenity report
+      - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
-          name: serenity-report
-          path: target/site/serenity
+          name: serenity-test-reports
+          path: |
+            FlockApp/target/site/serenity/
+            FlockApp/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Clean up Docker
+        if: always()
+        working-directory: FlockApp
+        run: docker compose down --remove-orphans
