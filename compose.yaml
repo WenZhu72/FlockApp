@@ -1,0 +1,45 @@
+
+services:
+  flockapp:
+    build: ../flock-app
+    ports:
+      - "8080:80"
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1/login.html
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  selenium:
+    image: selenium/standalone-chrome:4.27.0
+    shm_size: "2gb"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -fsS http://localhost:4444/status | grep -q '\"ready\": true'"
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    build: .
+    depends_on:
+      flockapp:
+        condition: service_healthy
+      selenium:
+        condition: service_healthy
+    command:
+      - mvn
+      - -B
+      - -Dwebdriver.base.url=http://flockapp
+      - -Dwebdriver.driver=remote
+      - -Dwebdriver.remote.url=http://selenium:4444/wd/hub
+      - -Dwebdriver.remote.driver=chrome
+      - verify
+    volumes:
+      - ./target:/app/target

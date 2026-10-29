@@ -5,7 +5,7 @@ import net.thucydides.core.annotations.DefaultUrl;
 import net.serenitybdd.core.annotations.findby.FindBy;
 import net.thucydides.core.pages.PageObject;
 
-@DefaultUrl("https://nishman89.github.io/flock/signup.html")
+@DefaultUrl("/signup.html")
 public class SignupPage extends PageObject {
 
     @FindBy(name = "firstname")

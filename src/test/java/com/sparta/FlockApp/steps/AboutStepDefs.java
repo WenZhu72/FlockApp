@@ -31,7 +31,7 @@ public class AboutStepDefs {
         MatcherAssert.assertThat(
                 loginPage.getDriver().getCurrentUrl(),
                 Matchers.is(
-                        "https://nishman89.github.io/flock/home.html"
+                        com.sparta.FlockApp.config.TestUrls.getUrl("home.html")
                 )
         );
     }

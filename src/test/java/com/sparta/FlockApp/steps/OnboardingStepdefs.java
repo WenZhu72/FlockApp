@@ -201,6 +201,7 @@ public class OnboardingStepdefs {
 
         assertThat(
                 onboardingPage.getCurrentStep(),
+                onboardingPage.getCurrentStep(),
                 is("STEP 4 OF 4")
         );
     }

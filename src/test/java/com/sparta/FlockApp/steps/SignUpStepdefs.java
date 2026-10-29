@@ -27,7 +27,7 @@ public class SignUpStepdefs {
     public void iShouldBeRedirectedToTheSignupPage() {
         MatcherAssert.assertThat(
                 signupPage.getDriver().getCurrentUrl(),
-                Matchers.is("https://nishman89.github.io/flock/signup.html")
+                Matchers.is(com.sparta.FlockApp.config.TestUrls.getUrl("signup.html"))
         );
     }
 
@@ -65,7 +65,7 @@ public class SignUpStepdefs {
     public void myAccountShouldBeCreatedSuccessfully() {
         MatcherAssert.assertThat(
                 signupPage.getDriver().getCurrentUrl(),
-                Matchers.is("https://nishman89.github.io/flock/onboarding.html")
+                Matchers.is(com.sparta.FlockApp.config.TestUrls.getUrl("onboarding.html"))
         );
     }
 
@@ -73,7 +73,7 @@ public class SignUpStepdefs {
     public void myAccountShouldNotBeCreated() {
         MatcherAssert.assertThat(
                 signupPage.getDriver().getCurrentUrl(),
-                Matchers.is("https://nishman89.github.io/flock/signup.html")
+                Matchers.is(com.sparta.FlockApp.config.TestUrls.getUrl("signup.html"))
         );
     }
 

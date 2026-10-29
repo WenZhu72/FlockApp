@@ -109,7 +109,7 @@
                         <include>**/*Runner.java</include>
                         <include>**/*POM.java</include>
                     </includes>
-                    <testFailureIgnore>true</testFailureIgnore>
+                    <testFailureIgnore>false</testFailureIgnore>
                 </configuration>
             </plugin>
 

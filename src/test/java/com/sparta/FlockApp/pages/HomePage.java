@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-@DefaultUrl("https://nishman89.github.io/flock/home.html")
+@DefaultUrl("/home.html")
 public class HomePage extends PageObject {
 
     // ==========================================
