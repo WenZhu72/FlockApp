@@ -1,6 +1,8 @@
 
 name: FlockApp Docker UI Tests
 
+# Run automatically when changes are pushed or a pull request
+# targets dev or main. Also allow manual execution.
 on:
   push:
     branches: [dev, main]
@@ -10,17 +12,21 @@ on:
 
 jobs:
 
+  # SMOKE TESTS
   smoke-tests:
     name: Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
+      # Checkout the Selenium/Serenity test automation project.
       - name: Checkout test automation
         uses: actions/checkout@v4
         with:
           path: FlockApp
 
+      # Checkout the application being tested.
+      # Both repositories are placed in the same workspace.
       - name: Checkout FlockApp website
         uses: actions/checkout@v4
         with:
@@ -28,10 +34,19 @@ jobs:
           ref: main
           path: flock-app
 
+      # Check that the Docker Compose configuration is valid.
       - name: Validate Docker Compose
         working-directory: FlockApp
         run: docker compose config --quiet
 
+      # Start the website and Selenium containers.
+      # This assumes the services are named flockapp and selenium.
+      - name: Start test environment
+        working-directory: FlockApp
+        run: docker compose up -d --build flockapp selenium
+
+      # Run only scenarios tagged @smoke.
+      # Maven returns a non-zero exit code if tests fail.
       - name: Run smoke tests
         working-directory: FlockApp
         run: |
@@ -45,6 +60,9 @@ jobs:
               -Dwebdriver.remote.driver=chrome \
               verify
 
+      # Docker can create root-owned files.
+      # Grant read permissions so GitHub Actions can upload reports.
+      # This runs even if the test step fails.
       - name: Fix report permissions
         if: always()
         run: |
@@ -52,6 +70,8 @@ jobs:
             sudo chmod -R a+rX FlockApp/target
           fi
 
+      # Preserve Serenity HTML reports and Maven test results.
+      # Reports remain available for 14 days.
       - name: Upload smoke test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,26 +80,31 @@ jobs:
           path: |
             FlockApp/target/site/serenity/
             FlockApp/target/surefire-reports/
+            FlockApp/target/failsafe-reports/
           if-no-files-found: warn
           retention-days: 14
 
+      # Stop and remove containers even when tests fail.
       - name: Clean up Docker
         if: always()
         working-directory: FlockApp
         run: docker compose down --remove-orphans
 
 
+  # REGRESSION TESTS
   regression-tests:
     name: Regression Tests
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
     steps:
+      # Checkout the automation repository.
       - name: Checkout test automation
         uses: actions/checkout@v4
         with:
           path: FlockApp
 
+      # Checkout the FlockApp application.
       - name: Checkout FlockApp website
         uses: actions/checkout@v4
         with:
@@ -87,10 +112,17 @@ jobs:
           ref: main
           path: flock-app
 
+      # Validate Docker Compose before starting containers.
       - name: Validate Docker Compose
         working-directory: FlockApp
         run: docker compose config --quiet
 
+      # Start the application and browser automation services.
+      - name: Start test environment
+        working-directory: FlockApp
+        run: docker compose up -d --build flockapp selenium
+
+      # Execute all scenarios except those tagged @ignore.
       - name: Run regression tests
         working-directory: FlockApp
         run: |
@@ -104,6 +136,7 @@ jobs:
               -Dwebdriver.remote.driver=chrome \
               verify
 
+      # Ensure the runner can read Docker-generated report files.
       - name: Fix report permissions
         if: always()
         run: |
@@ -111,6 +144,8 @@ jobs:
             sudo chmod -R a+rX FlockApp/target
           fi
 
+      # Upload the complete regression report.
+      # The report is uploaded even if some tests fail.
       - name: Upload regression test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,9 +154,11 @@ jobs:
           path: |
             FlockApp/target/site/serenity/
             FlockApp/target/surefire-reports/
+            FlockApp/target/failsafe-reports/
           if-no-files-found: warn
           retention-days: 14
 
+      # Remove containers and networks after the tests.
       - name: Clean up Docker
         if: always()
         working-directory: FlockApp
