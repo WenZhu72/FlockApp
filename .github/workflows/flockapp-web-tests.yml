@@ -9,13 +9,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  docker-tests:
-    name: Dockerised Selenium Tests
+  smoke-tests:
+    name: Smoke Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
-    env:
-      TEST_TAGS: ${{ (github.base_ref || github.ref_name) == 'main' && 'not @ignore' || '@smoke' }}
+    timeout-minutes: 20
 
     steps:
       - name: Checkout test automation
@@ -30,34 +27,74 @@ jobs:
           ref: main
           path: flock-app
 
-      - name: Validate Docker Compose
-        working-directory: FlockApp
-        run: docker compose config --quiet
-
-      - name: Run Dockerised Selenium tests
+      - name: Run smoke tests
         working-directory: FlockApp
         run: |
           docker compose run --build --rm \
-            -e TEST_TAGS="$TEST_TAGS" \
+            -e TEST_TAGS="@smoke" \
             tests mvn -B \
-              -Dmaven.test.failure.ignore=true \
-              -Dcucumber.filter.tags="$TEST_TAGS" \
+              -Dcucumber.filter.tags="@smoke" \
               -Dwebdriver.base.url=http://flockapp \
               -Dwebdriver.driver=remote \
               -Dwebdriver.remote.url=http://selenium:4444/wd/hub \
               -Dwebdriver.remote.driver=chrome \
               verify
 
-      - name: Upload test reports
+      - name: Upload smoke reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: serenity-test-reports
+          name: smoke-test-reports
           path: |
             FlockApp/target/site/serenity/
             FlockApp/target/surefire-reports/
           if-no-files-found: warn
-          retention-days: 14
+
+      - name: Clean up Docker
+        if: always()
+        working-directory: FlockApp
+        run: docker compose down --remove-orphans
+
+  regression-tests:
+    name: Regression Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout test automation
+        uses: actions/checkout@v4
+        with:
+          path: FlockApp
+
+      - name: Checkout FlockApp website
+        uses: actions/checkout@v4
+        with:
+          repository: WenZhu72/flock-app-docker
+          ref: main
+          path: flock-app
+
+      - name: Run regression tests
+        working-directory: FlockApp
+        run: |
+          docker compose run --build --rm \
+            -e TEST_TAGS="not @ignore" \
+            tests mvn -B \
+              -Dcucumber.filter.tags="not @ignore" \
+              -Dwebdriver.base.url=http://flockapp \
+              -Dwebdriver.driver=remote \
+              -Dwebdriver.remote.url=http://selenium:4444/wd/hub \
+              -Dwebdriver.remote.driver=chrome \
+              verify
+
+      - name: Upload regression reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-test-reports
+          path: |
+            FlockApp/target/site/serenity/
+            FlockApp/target/surefire-reports/
+          if-no-files-found: warn
 
       - name: Clean up Docker
         if: always()
